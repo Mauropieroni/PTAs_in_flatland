@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pta-flatland"
+version = "0.1.0"
+description = "1-D anisotropic PTA toy model: classical vs. learned detection statistics"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "jax",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "torch"]
+notebooks = ["ipykernel", "ipywidgets"]
+
+[project.scripts]
+pta-flatland-run = "pta_flatland.main:main"
+pta-flatland-chance-band = "pta_flatland.chance_band:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pta_flatland = ["sty.mplstyle"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
