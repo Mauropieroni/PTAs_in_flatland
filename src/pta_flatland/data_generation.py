@@ -13,13 +13,7 @@ import jax.numpy as jnp
 from tqdm import tqdm
 
 from .model import _phi_design, _K_matrix
-from .utils import (
-    _sample_params,
-    _sample_disk,
-    _sample_Cl,
-    _sample_Cl_isotropic,
-    triu_features,
-)
+from .utils import _sample_params, _sample_disk, triu_features
 
 jax.config.update("jax_enable_x64", True)
 
@@ -34,6 +28,11 @@ _CHUNK = 10_000  # samples per vmap call — caps peak memory usage
 @functools.partial(jax.jit, static_argnums=(1,))
 def generate_data(C, Ns, key):
     """Draw Ns samples from N(0, C) and return D = X^T X / Ns.
+
+    The /Ns here (an AVERAGE over samples, not a sum) is model.py's
+    "Cross-correlation convention": it is what makes E[D] = C exactly, with
+    no leftover sample-count factor -- see that module's docstring for where
+    the Ns factor the paper's summed statistic would carry shows up instead.
 
     General dense-covariance sampler (used by the test suite and anywhere
     a plain covariance matrix is the natural input). The data-generation
@@ -224,10 +223,6 @@ def build_datasets(phi_j, key, n_train, n_test, train_priors, test_scenarios, Ns
     sw_sig = _sample_params(train_priors["sigma2_gwb"], n_train, k_sw_sig)
     if "P2_max" in train_priors:
         P2r, P2i = _sample_disk(train_priors["P2_max"], n_train, k_p2)
-    elif "Cl" in train_priors:
-        P2r, P2i = _sample_Cl(train_priors["Cl"], n_train, k_p2)
-    elif "Cl_isotropic" in train_priors:
-        P2r, P2i = _sample_Cl_isotropic(train_priors["Cl_isotropic"], n_train, k_p2)
     else:
         k_p2r, k_p2i = jax.random.split(k_p2)
         P2r = _sample_params(train_priors["P2r"], n_train, k_p2r)

@@ -101,7 +101,8 @@ def bayes_factor(
     D_j   : JAX array (N_pul x N_pul), sufficient-statistic matrix
     Ns    : int, number of time samples used to build D
     priors : dict
-        Keys: "sigma2_noise", "sigma2_gwb", "P2r", "P2i".
+        Keys: "sigma2_noise", "sigma2_gwb", and either "P2_max" (uniform disk
+        prior: sample |P2| <= P2_max) or both "P2r" and "P2i".
         Each value is either:
           scalar        → parameter fixed to that value
           (min, max)    → uniform prior over [min, max]
@@ -133,24 +134,6 @@ def bayes_factor(
         theta = jax.random.uniform(k2, (n_mc,), minval=0.0, maxval=2.0 * jnp.pi)
         P2r = r * jnp.cos(theta)
         P2i = r * jnp.sin(theta)
-    elif "Cl" in priors:
-        # Same canonical realisation as utils._sample_Cl: Cl >= 0 is
-        # marginalised directly, P2i forced to 0, P2r = sqrt(Cl). k2 is
-        # unused here (there's no phase left to draw once P2i is fixed).
-        Cl = _sample_prior(k1, priors["Cl"], "Cl" in log_uniform, n_mc)
-        P2r = jnp.sqrt(Cl)
-        P2i = jnp.zeros(n_mc, dtype=jnp.float64)
-    elif "Cl_isotropic" in priors:
-        # Same isotropic realisation as utils._sample_Cl_isotropic: Cl >= 0
-        # is marginalised, then (P2r, P2i) ~ N(0, Cl/2) independently (k2
-        # now used for the second Gaussian draw).
-        Cl = _sample_prior(
-            k1, priors["Cl_isotropic"], "Cl_isotropic" in log_uniform, n_mc
-        )
-        sigma = jnp.sqrt(Cl / 2.0)
-        key, k3 = jax.random.split(key)
-        P2r = sigma * jax.random.normal(k2, (n_mc,))
-        P2i = sigma * jax.random.normal(k3, (n_mc,))
     else:
         P2r = _sample_prior(k1, priors["P2r"], "P2r" in log_uniform, n_mc)
         P2i = _sample_prior(k2, priors["P2i"], "P2i" in log_uniform, n_mc)
@@ -182,6 +165,10 @@ def df_weights(phi_j, theta_0, theta_1, Ns=None):
     Ns : int, optional.  If given, the overall constant is fixed so that
          Var[Tr(w_DF D)]_0 = 1, using
          Var[Tr(W D)]_0 = 2 Tr(W C_0 W C_0) / Ns  for symmetric W.
+         This 1/Ns is the same Ns-averaged-D convention as model.py's
+         "Cross-correlation convention" note: D is an average over Ns
+         samples, so Var[D] -- and anything quadratic in D -- scales as
+         1/Ns.
 
     Returns
     -------
@@ -197,36 +184,16 @@ def df_weights(phi_j, theta_0, theta_1, Ns=None):
     return W
 
 
-def deflection(phi_j, D_j, Ns, theta_0, theta_1, normalize=True):
-    """
-    Deflection detection statistic, Lambda_DF = Tr(w_DF D).
-
-    Parameters
-    ----------
-    phi_j : JAX array, pulsar angular positions
-    D_j   : JAX array (N_pul x N_pul), sufficient-statistic matrix
-    Ns    : int, number of time samples used to build D
-    theta_0, theta_1 : dicts fixing the null and signal parameter values
-    normalize : if True, scale the weights so that Var[Lambda_DF]_0 = 1
-
-    Returns
-    -------
-    float
-    """
-    W = df_weights(phi_j, theta_0, theta_1, Ns if normalize else None)
-    return float(jnp.trace(W @ D_j))
-
-
 @functools.partial(jax.jit, static_argnames=("normalize",))
 def deflection_batch(phi_j, D_batch, Ns, theta_0, theta_1, normalize=True):
     """
-    Deflection statistic evaluated across a whole batch of D matrices.
+    Deflection detection statistic, Lambda_DF = Tr(w_DF D), evaluated across a
+    whole batch of D matrices.
 
     df_weights depends only on (phi_j, theta_0, theta_1, Ns), not on D, so
     it's built once here and the trace is applied to the whole batch in a
-    single jitted pass -- unlike calling deflection() in a Python loop
-    (as roc._stats_quad used to), which rebuilds the weights from scratch
-    for every D.
+    single jitted pass, rather than rebuilding the weights from scratch for
+    every D.
 
     Parameters
     ----------
@@ -261,7 +228,9 @@ def map_cross_weights(phi_j, theta_0, Ns):
 
         Sigma_ab,cd = (C_ac C_bd + C_ad C_bc) / Ns ,
 
-    written in this code's convention E[D] = C (no 1/Ns in C).
+    written in this code's convention E[D] = C (no 1/Ns in C) -- see model.py's
+    "Cross-correlation convention" note: D is an Ns-sample average rather than
+    a sum, so this 1/Ns is the same bookkeeping as df_weights' normalisation.
 
     The joint maximum-likelihood fit P_hat = M^{-1} T^T Sigma^{-1} rho, with
     M = T^T Sigma^{-1} T, is linear in rho, so each estimator is a weighted
@@ -297,7 +266,8 @@ def map_cross_weights(phi_j, theta_0, Ns):
     return w[0], w[1], w[2]
 
 
-def map_cross_statistic(phi_j, D_j, Ns, theta_0, theta_1=None):
+@jax.jit
+def map_cross_statistic_batch(phi_j, D_batch, Ns, theta_0, theta_1=None):
     """
     Map-based detection statistic from the cross-correlations only,
 
@@ -305,32 +275,14 @@ def map_cross_statistic(phi_j, D_j, Ns, theta_0, theta_1=None):
 
     Eq. (44), with (P0, P2r, P2i) fitted jointly by map_cross_weights, so
     self-correlations (a = b) never contribute. Null thresholds are
-    calibrated empirically.
+    calibrated empirically. Evaluated across a whole batch of D matrices.
 
     theta_1 is accepted for interface compatibility with roc._QUAD and is
     ignored: the estimator whitens with the null covariance, as in Eq. (42).
 
-    Returns
-    -------
-    float
-    """
-    n = phi_j.shape[0]
-    _, w_P2r, w_P2i = map_cross_weights(phi_j, theta_0, Ns)
-    rho = D_j[np.triu_indices(n, k=1)]
-    return float(2.0 * ((w_P2r @ rho) ** 2 + (w_P2i @ rho) ** 2))
-
-
-@jax.jit
-def map_cross_statistic_batch(phi_j, D_batch, Ns, theta_0, theta_1=None):
-    """
-    Map-based (cross-correlation-only) statistic evaluated across a whole
-    batch of D matrices.
-
     map_cross_weights depends only on (phi_j, theta_0, Ns), not on D, so
     it's built once here and applied to the whole batch in a single jitted
-    pass -- unlike calling map_cross_statistic() in a Python loop (as
-    roc._stats_quad used to), which rebuilds the weights from scratch for
-    every D.
+    pass, rather than rebuilding the weights from scratch for every D.
 
     Parameters
     ----------
@@ -366,46 +318,20 @@ def np_weights(C0, C1):
     return jnp.linalg.inv(C0) - jnp.linalg.inv(C1)
 
 
-def likelihood_ratio(phi_j, D_j, Ns, theta_0, theta_1):
+@jax.jit
+def likelihood_ratio_batch(phi_j, D_batch, Ns, theta_0, theta_1):
     """
     Log likelihood ratio for two simple hypotheses -- the optimal (Neyman-
-    Pearson) detection statistic when all parameters are fixed.
+    Pearson) detection statistic when all parameters are fixed -- evaluated
+    across a whole batch of D matrices.
 
     log L_1/L_0 = (Ns/2) [ ln det C_0 - ln det C_1 + Tr(w_NP D) ] ,
 
     with the weights w_NP given by np_weights.
 
-    Parameters
-    ----------
-    phi_j : JAX array, pulsar angular positions
-    D_j   : JAX array (N_pul x N_pul), sufficient-statistic matrix
-    Ns    : int, number of time samples used to build D
-    theta_0, theta_1 : dicts fixing the null and signal parameter values
-
-    Returns
-    -------
-    float
-    """
-    C0 = covariance_matrix(phi_j, **theta_0)
-    C1 = covariance_matrix(phi_j, **theta_1)
-    W = np_weights(C0, C1)
-    return float(
-        Ns
-        / 2.0
-        * (jnp.linalg.slogdet(C0)[1] - jnp.linalg.slogdet(C1)[1] + jnp.trace(W @ D_j))
-    )
-
-
-@jax.jit
-def likelihood_ratio_batch(phi_j, D_batch, Ns, theta_0, theta_1):
-    """
-    Log likelihood ratio evaluated across a whole batch of D matrices.
-
     np_weights and the logdet term depend only on (phi_j, theta_0, theta_1),
     not on D, so they're built once here and applied to the whole batch in a
-    single jitted pass -- unlike calling likelihood_ratio() in a Python loop
-    (as roc._stats_quad used to), which rebuilds them from scratch for
-    every D.
+    single jitted pass, rather than being rebuilt from scratch for every D.
 
     Parameters
     ----------

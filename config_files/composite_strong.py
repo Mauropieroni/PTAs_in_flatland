@@ -76,11 +76,6 @@ bf_priors = priors
 bf_log_uniform = set()  # parameter names to sample log-uniformly
 n_mc_bf = 1000  # MC samples per evidence integral
 
-# Value-level (not ROC/rank) comparison: mlp_linear score vs true log Bayes
-# factor, on this many samples per null/scenario group. Used by
-# main_non_linear.py.
-n_value_compare = 1000
-
 # ---------------------------------------------------------------------------
 # Output paths
 # ---------------------------------------------------------------------------

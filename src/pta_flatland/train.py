@@ -9,7 +9,6 @@ tests/test_train_jax_matches_torch.py for the cross-check against torch.
 import numpy as np
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
 
 from .utils import triu_features
 from .det_stat import init_mlp_params, mlp_apply
@@ -295,20 +294,3 @@ def train(key, in_dim, hidden, datasets, method=None):
                 break
 
     return best_params, train_losses, val_losses
-
-
-def plot_training_curves(train_losses, val_losses, path):
-    epochs = range(1, len(train_losses) + 1)
-    best_ep = int(np.argmin(val_losses)) + 1
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.plot(epochs, train_losses, label="train")
-    ax.plot(epochs, val_losses, label="val")
-    ax.axvline(best_ep, color="grey", ls=":", label=f"best epoch ({best_ep})")
-    ax.set_xlabel("epoch")
-    ax.set_ylabel("loss")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"Training curves saved: {path}", flush=True)

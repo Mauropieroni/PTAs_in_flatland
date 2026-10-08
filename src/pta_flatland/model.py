@@ -9,6 +9,18 @@ Gamma_ab  = 1/2*cos(phi_a-phi_b) - pi*(P2r*cos(s_ab) - P2i*sin(s_ab))
 C_ab      = sigma2_noise*delta_ab + sigma2_gwb*Gamma_ab
 D_ab      = (1/Ns) sum_k x_{a,k}*x_{b,k}   [sufficient statistic, E[D]=C]
 
+Cross-correlation convention: D_ab above is defined as the AVERAGE of the
+per-sample products over the Ns time samples (so E[D] = C exactly, with no
+leftover sample-count factor). main.tex instead builds the cross-correlation
+statistic as a plain SUM over the same Ns samples, so its analogue of C_ab
+carries an extra factor of Ns relative to the C_ab used here. Every Ns factor
+that difference would otherwise put inside C_ab (and hence inside Gamma_ab)
+is therefore carried instead by explicit Ns factors elsewhere in this
+codebase: the Ns/2 prefactor in log_likelihood (and log_likelihood_woodbury)
+below, and the 1/Ns factors in det_stat.df_weights' normalisation and
+det_stat.map_cross_weights' pair covariance. Those are not independent
+choices -- they are this same averaging convention showing up at each place
+the paper's summed statistic would have carried its own factor of Ns.
 """
 
 # Global imports
@@ -31,19 +43,6 @@ def response_function(phi, phi_a):
     main.tex Eq. (9): F_a(phi) = hat_p_a . hat_epsilon(phi).
     """
     return -jnp.sin(phi - phi_a)
-
-
-def P_of_phi(phi, P2r, P2i):
-    """P(phi) = P0 + 2*(P2r*cos(2phi) - P2i*sin(2phi)), P0 = 1/(2*pi) fixed.
-
-    Non-negative iff P0 >= 2|P2|, i.e. hypot(P2r, P2i) <= 1/(4*pi).
-
-    Real parametrization of the Fourier expansion, main.tex Eq. (13),
-    truncated to m=0,±2 (only non-zero R_{ab,m}, per Eq. (16)).
-    P0 = P_0 = 1/(2*pi) (main.tex, after Eq. (13)), P2r = Re(P_2), P2i = Im(P_2).
-    """
-    P0 = 1.0 / (2.0 * jnp.pi)
-    return P0 + 2.0 * (P2r * jnp.cos(2.0 * phi) - P2i * jnp.sin(2.0 * phi))
 
 
 @jax.jit
@@ -70,8 +69,10 @@ def covariance_matrix(phi_pulsars, sigma2_noise, sigma2_gwb, P2r, P2i):
 
     Matches main.tex Eq. (26): C_ab = sigma2_noise*delta_ab + sigma2_gwb*Gamma_ab
     (coefficient 1 on the GWB term, Gamma_matrix already carries the correct
-    overall normalisation). The overall 1/N_s factor of the TeX convention is
-    absorbed into the N_s/2 prefactor of log_likelihood.
+    overall normalisation). No factor of Ns here -- see the module docstring's
+    "Cross-correlation convention" note: this C_ab is defined against the
+    Ns-AVERAGED D_ab, so the Ns factor the paper's summed statistic would
+    carry is moved into log_likelihood's Ns/2 prefactor instead.
     """
     G = Gamma_matrix(phi_pulsars, P2r, P2i)
     return sigma2_noise * jnp.eye(phi_pulsars.shape[0]) + sigma2_gwb * G
@@ -84,7 +85,10 @@ def log_likelihood(C, D, Ns):
     Autodiff-safe via jnp.linalg.slogdet + jnp.linalg.solve.
 
     Gaussian Kronecker likelihood derived from main.tex Eqs. (24)-(28),
-    using the sufficient statistic D from Eq. (28), normalised by 1/Ns.
+    using the sufficient statistic D from Eq. (28), normalised by 1/Ns (see
+    the module docstring's "Cross-correlation convention" note). This Ns/2
+    prefactor is exactly where the Ns factor absent from C_ab (relative to
+    the paper's summed statistic) reappears.
     """
     _, logdet = jnp.linalg.slogdet(C)
     C_inv_D = jnp.linalg.solve(C, D)

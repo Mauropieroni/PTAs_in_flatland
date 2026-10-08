@@ -1,6 +1,3 @@
-import numpy as np
-
-
 def set_custom_tick_options(ax, width=1, lenght=3):
     
     ax.minorticks_on()
@@ -19,85 +16,6 @@ def set_custom_tick_options(ax, width=1, lenght=3):
                    left = True,
                    right = True)
 
-#==============================================================================
-
-def set_log_xticks(ax, minval, maxval, show_first=True, step=1,
-                    sub_ticks = 'minor', n_minor = 8, font_size=15,):
-    
-    if sub_ticks == 'minor':
-        major_ticks = range(minval, maxval + 1, 1)
-        dx = 9 / (n_minor + 1)
-        minor_ticks = [np.log10((j * dx + 1) * 10**i) 
-                      for i in range(minval, maxval)
-                      for j in range(1, n_minor + 1)]
-    
-    elif sub_ticks == 'major':
-        major_ticks = [i for i in range(minval, maxval + 1, 1) if i%step == 0]
-        minor_ticks = [i for i in range(minval, maxval + 1, 1) if i%step != 0]
-    
-    major_tick_labels = []
-        
-    for i in range(minval, maxval + 1, 1):
-        
-        if i%step == 0:
-            if i == 0:
-                major_tick_labels.append(r'$1$')
-            elif i == 1:
-                major_tick_labels.append(r'$10$')
-            else:
-                major_tick_labels.append(r'$10^{' + str(i) + '}$')
-                
-        elif sub_ticks == 'minor':
-            major_tick_labels.append('')
-
-    if not show_first:
-        major_tick_labels[0] = ''
-
-    ax.set_xticks(major_ticks)
-    ax.set_xticks(minor_ticks, minor=True)
-    ax.set_xticklabels(major_tick_labels, fontsize=font_size)
-        
-    
-    
-
-#==============================================================================
-    
-def set_log_yticks(ax, minval, maxval, show_first=True, step=1,
-                    sub_ticks = 'minor', n_minor = 8, font_size=15,):
-    
-    if sub_ticks == 'minor':
-        major_ticks = range(minval, maxval + 1, 1)
-        dy = 9 / (n_minor + 1)
-        minor_ticks = [np.log10((j * dy + 1) * 10**i) 
-                      for i in range(minval, maxval)
-                      for j in range(1, n_minor + 1)]
-    
-    elif sub_ticks == 'major':
-        major_ticks = [i for i in range(minval, maxval + 1, 1) if i%step == 0]
-        minor_ticks = [i for i in range(minval, maxval + 1, 1) if i%step != 0]
-    
-    major_tick_labels = []
-        
-    for i in range(minval, maxval + 1, 1):
-        
-        if i%step == 0:
-            if i == 0:
-                major_tick_labels.append(r'$1$')
-            elif i == 1:
-                major_tick_labels.append(r'$10$')
-            else:
-                major_tick_labels.append(r'$10^{' + str(i) + '}$')
-                
-        elif sub_ticks == 'minor':
-            major_tick_labels.append('')
-
-    if not show_first:
-        major_tick_labels[0] = ''
-
-    ax.set_yticks(major_ticks)
-    ax.set_yticks(minor_ticks, minor=True)
-    ax.set_yticklabels(major_tick_labels, fontsize=font_size)
-    
 #==============================================================================
 
 def set_size(width, fraction=1, ratio=None, subplots=(1, 1)):
