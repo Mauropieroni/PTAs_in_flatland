@@ -1,22 +1,32 @@
 def set_custom_tick_options(ax, width=1, lenght=3):
-    
-    ax.minorticks_on()
-    
-    ax.tick_params(which='major', direction='in', 
-                   length=2*lenght, width = width, 
-                   bottom = True, 
-                   top = True,
-                   left = True,
-                   right = True,
-                   pad = 5)
-    ax.tick_params(which='minor',direction='in',
-                   length = lenght, width = width, 
-                   bottom = True, 
-                   top = True,
-                   left = True,
-                   right = True)
 
-#==============================================================================
+    ax.minorticks_on()
+
+    ax.tick_params(
+        which="major",
+        direction="in",
+        length=2 * lenght,
+        width=width,
+        bottom=True,
+        top=True,
+        left=True,
+        right=True,
+        pad=5,
+    )
+    ax.tick_params(
+        which="minor",
+        direction="in",
+        length=lenght,
+        width=width,
+        bottom=True,
+        top=True,
+        left=True,
+        right=True,
+    )
+
+
+# ==============================================================================
+
 
 def set_size(width, fraction=1, ratio=None, subplots=(1, 1)):
     """Set figure dimensions to avoid scaling in LaTeX.
@@ -46,6 +56,7 @@ def set_size(width, fraction=1, ratio=None, subplots=(1, 1)):
     fig_dim = (fig_width_in, fig_height_in)
 
     return fig_dim
+
 
 def square_panels(fig, pad=0.06, wspace=None, n_iter=3):
     """Set margins from the rendered labels, then resize the figure so every
@@ -82,10 +93,11 @@ def square_panels(fig, pad=0.06, wspace=None, n_iter=3):
 
         if wspace is None:
             # widest left-overhang among panels that are not in column 0
-            over = [a.get_position().x0 * Wc
-                    - a.get_tightbbox(r).transformed(to_in).x0
-                    for a in fig.axes
-                    if a.get_subplotspec().colspan.start > 0]
+            over = [
+                a.get_position().x0 * Wc - a.get_tightbbox(r).transformed(to_in).x0
+                for a in fig.axes
+                if a.get_subplotspec().colspan.start > 0
+            ]
             gap_in = (max(over) if over else 0.0) + pad
         else:
             gap_in = None
@@ -97,8 +109,13 @@ def square_panels(fig, pad=0.06, wspace=None, n_iter=3):
             ax_w = (W - l_in - r_in - (ncols - 1) * gap_in) / ncols
             ws = gap_in / ax_w
 
-        H = ax_w + b_in + t_in          # exact: makes axes height == ax_w
+        H = ax_w + b_in + t_in  # exact: makes axes height == ax_w
         fig.set_size_inches(W, H)
-        fig.subplots_adjust(left=l_in / W, right=1 - r_in / W,
-                            bottom=b_in / H, top=1 - t_in / H, wspace=ws)
+        fig.subplots_adjust(
+            left=l_in / W,
+            right=1 - r_in / W,
+            bottom=b_in / H,
+            top=1 - t_in / H,
+            wspace=ws,
+        )
     return fig

@@ -121,10 +121,14 @@ def test_gamma_from_R_m(seed=2):
     P2r, P2i = 0.020, 0.015  # hypot < 1/(4*pi), keeps P(phi) >= 0
     P2 = P2r + 1j * P2i
 
-    Gamma_sum = 2.0 * np.pi * (
-        R_ab_m_analytical(phi_a, phi_b, 0) * P0
-        + R_ab_m_analytical(phi_a, phi_b, 2) * P2
-        + R_ab_m_analytical(phi_a, phi_b, -2) * np.conj(P2)
+    Gamma_sum = (
+        2.0
+        * np.pi
+        * (
+            R_ab_m_analytical(phi_a, phi_b, 0) * P0
+            + R_ab_m_analytical(phi_a, phi_b, 2) * P2
+            + R_ab_m_analytical(phi_a, phi_b, -2) * np.conj(P2)
+        )
     )
     Gamma_dir = Gamma_ab_analytical(phi_a, phi_b, P2r, P2i)
 

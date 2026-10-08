@@ -27,9 +27,8 @@ progress) with James Alvey, Andrea Mitridate and Joe Romano.
 pip install -e ".[dev]"
 ```
 
-`dev` pulls in `pytest` and `torch` (needed only by the test that checks the
-hand-rolled JAX training step against PyTorch's reference implementation,
-`tests/test_train_jax_matches_torch.py`). For just running the pipeline:
+`dev` pulls in `pytest`, needed to run the test suite. For just running the
+pipeline:
 
 ```bash
 pip install -e .
@@ -53,7 +52,9 @@ and its ROC curves to `plots/<scenario>/roc.npz`.
 For the composite scenarios, the ROC figure also shows a "chance band" for
 the linear classifier (its population optimum is the zero vector under the
 composite prior, so its finite-sample fit is pure noise — see
-`src/pta_flatland/chance_band.py` for why). Generate it with:
+`src/pta_flatland/chance_band.py` for why). `run_all.py` generates it
+automatically for whichever composite scenarios it runs; to regenerate it
+on its own (e.g. with a different `--n_rep`):
 
 ```bash
 python -m pta_flatland.chance_band --config config_files/composite_weak.py
@@ -108,7 +109,7 @@ src/pta_flatland/
     main.py              pipeline CLI (data gen -> train -> ROC)
 config_files/            one scenario per file: simple/composite x weak/strong
 tests/                   unit tests (physics, Woodbury identity, low-rank
-                        sampling, MLE, JAX/PyTorch training parity)
+                        sampling, MLE)
 make_figures.ipynb       assembles the 3 paper figures from out/ and plots/
 run_all.py                runs all 4 scenarios end to end
 ```

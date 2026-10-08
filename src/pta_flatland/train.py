@@ -1,11 +1,10 @@
 """
 Training loop for ML-based detection statistics -- pure JAX (forward pass,
-loss, and a hand-rolled AdamW optimizer), replacing the previous
-PyTorch-based loop. AdamW is hand-rolled rather than pulled from a library
-so nothing sits between this code and the exact update rule (see
-_adamw_update): it reproduces torch.optim.AdamW's math term-for-term, see
-tests/test_train_jax_matches_torch.py for the cross-check against torch.
+loss, and a hand-rolled AdamW optimizer). AdamW is hand-rolled rather than
+pulled from a library so nothing sits between this code and the exact
+update rule (see _adamw_update).
 """
+
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -13,10 +12,8 @@ import jax.numpy as jnp
 from .utils import triu_features
 from .det_stat import init_mlp_params, mlp_apply
 
-# torch.optim.AdamW's defaults -- the old loop only ever overrode lr
-# (torch.optim.AdamW(model.parameters(), lr=config.learning_rate)), so these
-# are what it was actually running with. Named here so _adamw_update and its
-# cross-check test both reference the same numbers.
+# AdamW's standard defaults -- the old loop only ever overrode lr, so these
+# are what it was actually running with.
 _BETA1 = 0.9
 _BETA2 = 0.999
 _EPS = 1e-8
@@ -24,9 +21,10 @@ _WEIGHT_DECAY = 0.01
 
 
 def _bce_with_logits(logits, y):
-    """Mean binary cross-entropy from logits -- matches
-    torch.nn.BCEWithLogitsLoss()'s default (mean reduction, no pos_weight)."""
-    return -(y * jax.nn.log_sigmoid(logits) + (1 - y) * jax.nn.log_sigmoid(-logits)).mean()
+    """Mean binary cross-entropy from logits (mean reduction, no pos_weight)."""
+    return -(
+        y * jax.nn.log_sigmoid(logits) + (1 - y) * jax.nn.log_sigmoid(-logits)
+    ).mean()
 
 
 def _adamw_init(params):
@@ -38,10 +36,8 @@ def _adamw_init(params):
 
 
 def _adamw_update(params, grads, opt_state, lr, weight_decay):
-    """One torch.optim.AdamW step: decoupled weight decay applied to the
-    pre-update params, then a bias-corrected Adam step -- see
-    tests/test_train_jax_matches_torch.py for the term-by-term equivalence
-    check against torch.optim.AdamW.
+    """One AdamW step: decoupled weight decay applied to the pre-update
+    params, then a bias-corrected Adam step.
 
     weight_decay is a genuine argument (not the module-level _WEIGHT_DECAY
     baked in as a Python constant) specifically so it stays a normal JAX
@@ -248,8 +244,13 @@ def train(key, in_dim, hidden, datasets, method=None):
     for epoch in range(1, n_epochs + 1):
         if fresh_every and epoch > 1 and (epoch - 1) % fresh_every == 0:
             X_tr, y_tr, data_key = training_features(
-                phi_j, Ns, n_tr // 2, config.train_priors, data_key,
-                datasets["_mu"], datasets["_sig_std"],
+                phi_j,
+                Ns,
+                n_tr // 2,
+                config.train_priors,
+                data_key,
+                datasets["_mu"],
+                datasets["_sig_std"],
             )
 
         key, shuffle_key = jax.random.split(key)
@@ -278,8 +279,7 @@ def train(key, in_dim, hidden, datasets, method=None):
             )
 
         # params is a fresh pytree each step (JAX arrays are immutable), so
-        # this is a cheap reference grab -- no copy.deepcopy needed, unlike
-        # the old torch state_dict checkpointing.
+        # this is a cheap reference grab -- no copy.deepcopy needed.
         if val_loss < best_val - 1e-6:
             best_val = val_loss
             best_params = params

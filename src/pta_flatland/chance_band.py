@@ -34,7 +34,11 @@ import time
 
 FPR_GRID_POINTS = 201
 QUANTILES = {  # pointwise 1 and 2 sigma
-    "lo2": 0.02275, "lo1": 0.15866, "med": 0.5, "hi1": 0.84134, "hi2": 0.97725,
+    "lo2": 0.02275,
+    "lo1": 0.15866,
+    "med": 0.5,
+    "hi1": 0.84134,
+    "hi2": 0.97725,
 }
 
 
@@ -50,13 +54,24 @@ def _parse_args():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--config", required=True)
     parser.add_argument("--n_rep", type=int, default=20, help="training-set replicas")
-    parser.add_argument("--n_train", type=int, default=None,
-                        help="D matrices per class (default: the config's n_train)")
+    parser.add_argument(
+        "--n_train",
+        type=int,
+        default=None,
+        help="D matrices per class (default: the config's n_train)",
+    )
     parser.add_argument("--seed", type=int, default=1000)
-    parser.add_argument("--train_priors", type=json.loads, default=None,
-                        help="JSON dict overriding config.train_priors")
-    parser.add_argument("--out", default=None,
-                        help="output .npz (default: <plot_out_dir>/chance_band[_n<N>].npz)")
+    parser.add_argument(
+        "--train_priors",
+        type=json.loads,
+        default=None,
+        help="JSON dict overriding config.train_priors",
+    )
+    parser.add_argument(
+        "--out",
+        default=None,
+        help="output .npz (default: <plot_out_dir>/chance_band[_n<N>].npz)",
+    )
     return parser.parse_args()
 
 
@@ -92,12 +107,24 @@ def main():
         key, k_sn0, k_sw0, k_sn1, k_sw1, k_p2 = jax.random.split(key, 6)
         zeros = jnp.zeros(n_train, dtype=jnp.float64)
         P2r, P2i = _sample_disk(pri["P2_max"], n_train, k_p2)
-        X0, key = features(phi_j, _sample_params(pri["sigma2_noise"], n_train, k_sn0),
-                            _sample_params(pri["sigma2_gwb"], n_train, k_sw0),
-                            zeros, zeros, Ns, key)
-        X1, key = features(phi_j, _sample_params(pri["sigma2_noise"], n_train, k_sn1),
-                            _sample_params(pri["sigma2_gwb"], n_train, k_sw1),
-                            P2r, P2i, Ns, key)
+        X0, key = features(
+            phi_j,
+            _sample_params(pri["sigma2_noise"], n_train, k_sn0),
+            _sample_params(pri["sigma2_gwb"], n_train, k_sw0),
+            zeros,
+            zeros,
+            Ns,
+            key,
+        )
+        X1, key = features(
+            phi_j,
+            _sample_params(pri["sigma2_noise"], n_train, k_sn1),
+            _sample_params(pri["sigma2_gwb"], n_train, k_sw1),
+            P2r,
+            P2i,
+            Ns,
+            key,
+        )
         return X0, X1, key
 
     def train_linear(X0, X1, seed):
@@ -125,8 +152,11 @@ def main():
     del npz
     n_train = args.n_train or config.n_train
     print(f"train priors: {args.train_priors or config.train_priors}", flush=True)
-    print(f"{config.run_label}: n_pul={len(phi_j)}, Ns={Ns}, n_train={n_train}, "
-          f"n_test={len(X_null)}, n_rep={args.n_rep}", flush=True)
+    print(
+        f"{config.run_label}: n_pul={len(phi_j)}, Ns={Ns}, n_train={n_train}, "
+        f"n_test={len(X_null)}, n_rep={args.n_rep}",
+        flush=True,
+    )
 
     key = jax.random.PRNGKey(args.seed)
     tprs, aucs = [], []
@@ -143,8 +173,11 @@ def main():
         # fpr is non-decreasing with ties; take the upper envelope at each FPR
         tprs.append(np.interp(fpr_grid, fpr, tpr))
         aucs.append(auc)
-        print(f"  rep {rep + 1:3d}/{args.n_rep}  AUC={auc:.4f}  iters={iters}"
-              f"  ({time.perf_counter() - t0:.0f}s)", flush=True)
+        print(
+            f"  rep {rep + 1:3d}/{args.n_rep}  AUC={auc:.4f}  iters={iters}"
+            f"  ({time.perf_counter() - t0:.0f}s)",
+            flush=True,
+        )
 
     tprs = np.array(tprs)
     out = args.out or os.path.join(
@@ -152,12 +185,20 @@ def main():
         "chance_band.npz" if args.n_train is None else f"chance_band_n{n_train}.npz",
     )
     np.savez(
-        out, fpr=fpr_grid, tpr_all=tprs, auc_all=np.array(aucs), n_train=n_train,
-        n_test=len(X_null), mean=tprs.mean(axis=0), std=tprs.std(axis=0, ddof=1),
+        out,
+        fpr=fpr_grid,
+        tpr_all=tprs,
+        auc_all=np.array(aucs),
+        n_train=n_train,
+        n_test=len(X_null),
+        mean=tprs.mean(axis=0),
+        std=tprs.std(axis=0, ddof=1),
         **{k: np.quantile(tprs, q, axis=0) for k, q in QUANTILES.items()},
     )
-    print(f"AUC over replicas: mean={np.mean(aucs):.4f}  std={np.std(aucs):.4f}  "
-          f"range=[{np.min(aucs):.4f}, {np.max(aucs):.4f}]")
+    print(
+        f"AUC over replicas: mean={np.mean(aucs):.4f}  std={np.std(aucs):.4f}  "
+        f"range=[{np.min(aucs):.4f}, {np.max(aucs):.4f}]"
+    )
     print(f"Saved: {out}")
 
 

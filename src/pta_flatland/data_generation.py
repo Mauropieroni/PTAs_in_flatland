@@ -111,7 +111,9 @@ def _generate_batch(phi_j, sn, sw, P2r, P2i, Ns, key):
     chunks = []
     for start in tqdm(range(0, n, _CHUNK)):
         sl = slice(start, min(start + _CHUNK, n))
-        D_chunk = _generate_chunk(phi_j, sn[sl], sw[sl], P2r[sl], P2i[sl], Ns, all_keys[sl])
+        D_chunk = _generate_chunk(
+            phi_j, sn[sl], sw[sl], P2r[sl], P2i[sl], Ns, all_keys[sl]
+        )
         # Pull each chunk to host immediately — this is what bounds peak
         # device memory to _CHUNK rather than n, not a defensive cast.
         chunks.append(np.asarray(D_chunk))
@@ -138,10 +140,10 @@ def _standardised_features_chunk(phi_j, sn, sw, P2r, P2i, Ns, key, rows, cols, m
     Z = jax.random.normal(key_z, (n, Ns, N))
     W = jax.random.normal(key_w, (n, Ns, 2))
     L_K = jnp.linalg.cholesky(jax.vmap(_K_matrix)(P2r, P2i))  # (n, 2, 2)
-    X = (
-        jnp.sqrt(sn)[:, None, None] * Z
-        + jnp.sqrt(sw)[:, None, None]
-        * jnp.einsum("nsk,nlk->nsl", W, L_K) @ _phi_design(phi_j)
+    X = jnp.sqrt(sn)[:, None, None] * Z + jnp.sqrt(sw)[:, None, None] * jnp.einsum(
+        "nsk,nlk->nsl", W, L_K
+    ) @ _phi_design(
+        phi_j
     )  # (n, Ns, N)
     D = jnp.einsum("nsa,nsb->nab", X, X) / Ns
     return (D[:, rows, cols] - mu) / sd
@@ -175,20 +177,26 @@ def training_features(phi_j, Ns, n_train, train_priors, key, mu, sd):
         for s in range(0, n_train, _CHUNK):
             sl = slice(s, s + _CHUNK)
             key, sub = jax.random.split(key)
-            out.append(_standardised_features_chunk(
-                phi_j, sn[sl], sw[sl], pr[sl], pi[sl], Ns, sub, rows, cols, mu, sd
-            ))
+            out.append(
+                _standardised_features_chunk(
+                    phi_j, sn[sl], sw[sl], pr[sl], pi[sl], Ns, sub, rows, cols, mu, sd
+                )
+            )
         return out, key
 
     X0, key = features(
         _sample_params(train_priors["sigma2_noise"], n_train, k_sn0),
         _sample_params(train_priors["sigma2_gwb"], n_train, k_sw0),
-        zeros, zeros, key,
+        zeros,
+        zeros,
+        key,
     )
     X1, key = features(
         _sample_params(train_priors["sigma2_noise"], n_train, k_sn1),
         _sample_params(train_priors["sigma2_gwb"], n_train, k_sw1),
-        P2r, P2i, key,
+        P2r,
+        P2i,
+        key,
     )
     y = jnp.concatenate([jnp.zeros(n_train), jnp.ones(n_train)])
     return jnp.concatenate(X0 + X1), y, key

@@ -61,7 +61,9 @@ def main():
         methods = [m.strip() for m in args.methods.split(",") if m.strip()]
         unknown = [m for m in methods if m not in config.roc_methods]
         if unknown:
-            raise SystemExit(f"--methods {unknown} not in roc_methods {config.roc_methods}")
+            raise SystemExit(
+                f"--methods {unknown} not in roc_methods {config.roc_methods}"
+            )
         if not os.path.exists(data_path):
             raise SystemExit(f"--methods needs existing datasets: {data_path}")
     else:

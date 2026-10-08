@@ -18,14 +18,10 @@ def init_mlp_params(key, in_dim: int, hidden: list):
     """Initialise MLP parameters: a list of (w, b) pairs, one per Linear
     layer, w of shape (fan_in, fan_out). hidden=[] gives a single linear
     layer (previously the separate mlp_linear class); hidden=[h1, h2, ...]
-    gives that many ReLU hidden layers before the final linear readout,
-    exactly the architecture the old torch mlp class built.
+    gives that many ReLU hidden layers before the final linear readout.
 
-    Matches torch.nn.Linear's default init (kaiming_uniform_ with a=sqrt(5),
-    which reduces to U(-1/sqrt(fan_in), 1/sqrt(fan_in)) for weight and bias
-    alike) purely so a freshly-initialised model has the same weight scale
-    as before -- the actual draws differ, since torch and JAX use unrelated
-    RNGs.
+    Weight and bias are drawn U(-1/sqrt(fan_in), 1/sqrt(fan_in)), i.e. a
+    kaiming-uniform-style init scaled by fan_in.
     """
     sizes = [in_dim, *hidden, 1]
     params = []
@@ -40,7 +36,7 @@ def init_mlp_params(key, in_dim: int, hidden: list):
 
 def mlp_apply(params, x):
     """Forward pass through params from init_mlp_params: ReLU after every
-    layer but the last, matching the old torch mlp/mlp_linear classes."""
+    layer but the last."""
     *hidden_layers, (w_out, b_out) = params
     for w, b in hidden_layers:
         x = jax.nn.relu(x @ w + b)

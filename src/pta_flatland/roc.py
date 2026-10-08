@@ -106,7 +106,7 @@ def compute_roc(method, datasets, phi_j):
     -------
     dict : {scenario_label: (fpr, tpr, auc)}
     """
-    labels = [str(l) for l in datasets["_labels"]]
+    labels = [str(label) for label in datasets["_labels"]]
     Ns = datasets["_Ns"]
     D_null = datasets["D_test_null"]
 
@@ -127,8 +127,8 @@ def compute_roc(method, datasets, phi_j):
         return result
 
     # Load ML model once (reused across all scenarios) -- the params pytree
-    # is self-describing, unlike torch's state_dict, so no separate
-    # "build the matching empty architecture" step is needed here.
+    # is self-describing, so no separate "build the matching empty
+    # architecture" step is needed here.
     if method != "bayes_factor":
         params = load_model(model_path(method))
 

@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "torch"]
+dev = ["pytest"]
 notebooks = ["ipykernel", "ipywidgets"]
 
 [project.scripts]
